@@ -34,26 +34,7 @@
         android:onClick="loadNote"
         android:text="Load"/>
 
-    <Button
-        android:id="@+id/button"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:onClick="updateDescription"
-        android:text="update description only" />
 
-    <Button
-        android:id="@+id/button3"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:onClick="deleteDescription"
-        android:text="Delete description only" />
-
-    <Button
-        android:id="@+id/button4"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:onClick="deleteNote"
-        android:text="deleteNote" />
 
     <TextView
         android:id="@+id/text_view_data"
