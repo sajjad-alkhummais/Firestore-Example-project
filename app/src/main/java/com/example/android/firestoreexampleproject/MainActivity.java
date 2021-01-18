@@ -13,14 +13,18 @@ import android.widget.Toast;
 
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.SetOptions;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -34,8 +38,10 @@ public class MainActivity extends AppCompatActivity {
     private EditText editTextTitle;
     private EditText editTextDescription;
     private TextView textViewData;
-    private FirebaseFirestore db = FirebaseFirestore.getInstance();
 
+
+    private FirebaseFirestore db = FirebaseFirestore.getInstance();
+    private CollectionReference notebookRef = db.collection("NoteBook");
     //we create a reference for the document
     private DocumentReference noteRef = db.document("NoteBook/My First Note");
 
@@ -61,51 +67,47 @@ public class MainActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
 
-        noteRef.addSnapshotListener(this, new EventListener<DocumentSnapshot>() {   // here we add the (this) <--2
+        notebookRef.addSnapshotListener(this, new EventListener<QuerySnapshot>() {
             @Override
+            public void onEvent(@Nullable QuerySnapshot queryDocumentSnapshots, @Nullable FirebaseFirestoreException e) {
 
-            //this method will be called when on start is called and whenever a change happens to the data in the db
-            public void onEvent(@Nullable DocumentSnapshot documentSnapshot, @Nullable FirebaseFirestoreException e) {
+                if (e != null){
 
-                if (e != null) {
-
-                    Toast.makeText(MainActivity.this, "Error while loading!", Toast.LENGTH_SHORT).show();
-                    Log.d(TAG, e.toString());
-                    //this return stops us from continuing if something went wrong, it is necessary
-                    //because otherwise documentSnapshot will be null which will crash the app
                     return;
+
+
                 }
 
-                if (documentSnapshot.exists()) {
+                String data = "";
 
-                    //    {
-                    //String title = documentSnapshot.getString(KEY_TITLE);
-                    //String description = documentSnapshot.getString(KEY_DESCRIPTION);
-
-                    //or we can call the whole map
-                    //Map<String, Object> note = documentSnapshot.getData();
-
-
-                    //     }
-                    //or to retrieve data from the database into out own constructor
+                for (QueryDocumentSnapshot documentSnapshot : queryDocumentSnapshots){
 
                     Note note = documentSnapshot.toObject(Note.class);
+                    note.setDocumentId(documentSnapshot.getId());
 
+
+                    String documentId = note.getDocumentId();
                     String title = note.getTitle();
                     String description = note.getDescription();
 
-                    textViewData.setText("Title: " + title + "\n" + "Description: " + description);
-                 }else {
+                    data += "ID: "+ documentId
+                            + "\nTitle: " + title + "\nDescription: " + description + "\n\n";
 
-                    textViewData.setText("Title ");
+                    //if you want to get a reference for a document
+                    notebookRef.document(documentId);
                 }
+
+
+                textViewData.setText(data);
 
             }
         });
+
+
     }
 
     //to save data inside the firestore data base
-    public void saveNote(View v) {
+    public void addNote(View v) {
         String title = editTextTitle.getText().toString();
         String description = editTextDescription.getText().toString();
 
@@ -118,111 +120,39 @@ public class MainActivity extends AppCompatActivity {
         //or we can just create our own constructor
         Note note = new Note(title, description);
 
-        noteRef.set(note)
-                .addOnSuccessListener(new OnSuccessListener<Void>() {
-                    @Override
-                    public void onSuccess(Void aVoid) {
-                        Toast.makeText(MainActivity.this, "Note saved", Toast.LENGTH_SHORT).show();
-                    }
-                }).addOnFailureListener(new OnFailureListener() {
+        //it is preferable to add onSuccess listener on a real app so that you know what happens
+        notebookRef.add(note);
+
+
+    }
+
+
+    //to fetch data from the Firestore data base when something happens(when a button is clicked in this case)
+    public void loadNotes(View v) {
+
+        notebookRef.get().addOnSuccessListener(new OnSuccessListener<QuerySnapshot>() {
             @Override
-            public void onFailure(@NonNull Exception e) {
+            public void onSuccess(QuerySnapshot queryDocumentSnapshots) {
 
-                Toast.makeText(MainActivity.this, "Error", Toast.LENGTH_SHORT).show();
+                //queryDocumentSnapshots contains all the documents(the whole collection)
 
-                Log.d(TAG, e.toString());
-            }
-        });
+                String data = "";
+                for (QueryDocumentSnapshot documentSnapshot : queryDocumentSnapshots) {
 
+                    Note note = documentSnapshot.toObject((Note.class));
+                    //in a real app you should add the documents information into an arraylist
+                    note.setDocumentId(documentSnapshot.getId());
 
-    }
+                    String documentId = note.getDocumentId();
+                    String title = note.getTitle();
+                    String description  = note.getDescription();
 
+                    data += "ID: "+ documentId
+                            + "\nTitle: " + title + "\nDescription: " + description + "\n\n";
 
-    //updating only the description
-    public void updateDescription(View v){
+                }
 
-        String description = editTextDescription.getText().toString();
-
-        //Map<String, Object> note = new HashMap<>();
-
-        //note.put(KEY_DESCRIPTION, description);
-
-        //to update only specific fields, and if there isn't a document it creates one
-        //noteRef.set(note, SetOptions.merge());
-
-        //to update only specific fields,
-        //and if there isn't a document it doesn't create one
-        //noteRef.update(note);
-
-        //We can also update without the hashMap, we can do this
-        // (doesn't create a document if there isn't one)
-        noteRef.update(KEY_DESCRIPTION, description);
-
-    }
-
-    public void deleteDescription(View v){
-
-//        Map<String, Object> note = new HashMap<>();
-//
-//        note.put(KEY_DESCRIPTION, FieldValue.delete());
-//
-//        noteRef.update(note);
-
-        //or we can just do this
-
-        //we can also add OnSuccessListener and OnFailureListener as usual
-        noteRef.update(KEY_DESCRIPTION, FieldValue.delete());
-
-    }
-
-    public void deleteNote(View v){
-
-    noteRef.delete();
-
-    }
-
-    //to fetch data from the firestore data base when something happens(when a button is clicked in this case)
-
-    public void loadNote(View v) {
-
-        noteRef.get()
-                .addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
-                    @Override
-                    public void onSuccess(DocumentSnapshot documentSnapshot) {
-                        //documentSnapshot contain all our data that are in the data base
-                        //to check that there are data in the first place
-                        if (documentSnapshot.exists()) {
-
-                            //    {
-                             //String title = documentSnapshot.getString(KEY_TITLE);
-                             //String description = documentSnapshot.getString(KEY_DESCRIPTION);
-
-                            //or we can call the whole map
-                            //Map<String, Object> note = documentSnapshot.getData();
-
-
-                            //     }
-                            //or to retrieve data from the database into out own constructor
-
-                            Note note = documentSnapshot.toObject(Note.class);
-
-                            String title = note.getTitle();
-                            String description = note.getDescription();
-
-                            textViewData.setText("Title: " + title + "\n" + "Description: " + description);
-                        } else {
-
-                            Toast.makeText(MainActivity.this, "Document does not exist", Toast.LENGTH_SHORT).show();
-                        }
-
-                    }
-                }).addOnFailureListener(new OnFailureListener() {
-            @Override
-            public void onFailure(@NonNull Exception e) {
-                Toast.makeText(MainActivity.this, "Error!", Toast.LENGTH_SHORT).show();
-                Log.d(TAG, e.toString());
-
-
+                textViewData.setText(data);
             }
         });
 
